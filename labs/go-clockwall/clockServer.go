@@ -2,16 +2,18 @@
 package main
 
 import (
+	"flag"
 	"io"
 	"log"
 	"net"
+	"os"
 	"time"
 )
 
-func handleConn(c net.Conn) {
+func handleConn(c net.Conn, l *time.Location) {
 	defer c.Close()
 	for {
-		_, err := io.WriteString(c, time.Now().Format("15:04:05\n"))
+		_, err := io.WriteString(c, l.String()+": "+time.Now().In(l).Format("15:04:05")+"\n")
 		if err != nil {
 			return // e.g., client disconnected
 		}
@@ -20,7 +22,16 @@ func handleConn(c net.Conn) {
 }
 
 func main() {
-	listener, err := net.Listen("tcp", "localhost:9090")
+	var port string
+	flag.StringVar(&port, "port", "8080", "Port of the time server")
+	flag.Parse()
+
+	location, err := time.LoadLocation(os.Getenv("TZ"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	listener, err := net.Listen("tcp", "localhost:"+port)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -30,6 +41,6 @@ func main() {
 			log.Print(err) // e.g., connection aborted
 			continue
 		}
-		go handleConn(conn) // handle connections concurrently
+		go handleConn(conn, location) // handle connections concurrently
 	}
 }
